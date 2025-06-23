@@ -1,103 +1,164 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import ImageUploader from "./components/ImageUploader";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [images, setImages] = useState<string[]>([]);
+  const [results, setResults] = useState<
+    { url: string; caption: string; hashtags: string }[]
+  >([]);
+  const [loading, setLoading] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // 🆕 Customization states
+  const [hashtagCount, setHashtagCount] = useState(10);
+  const [tone, setTone] = useState("fun");
+  const [includeEmojis, setIncludeEmojis] = useState(true);
+
+  const handleGenerate = async () => {
+    setLoading(true);
+    const newResults = [];
+
+    for (const url of images) {
+      const res = await fetch("/api/generateHashtags", {
+        method: "POST",
+        body: JSON.stringify({
+          imageUrl: url,
+          options: {
+            hashtagCount,
+            tone,
+            includeEmojis,
+          },
+        }),
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const data = await res.json();
+      newResults.push({ url, caption: data.caption, hashtags: data.hashtags });
+    }
+
+    setResults(newResults);
+    setLoading(false);
+  };
+
+  return (
+    <main className="p-8 max-w-xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">📸 Instagram Post Generator</h1>
+      </div>
+
+      <ImageUploader onImagesChange={setImages} />
+      {images.length > 0 && results.length === 0 && (
+        <div className="mt-4 grid grid-cols-2 gap-4">
+          {images.map((url, i) => (
+            <div key={i} className="relative group">
+              <img
+                src={url}
+                alt={`upload-${i}`}
+                className="w-full h-auto rounded border"
+              />
+              <button
+                className="absolute top-1 right-1 bg-red-600 text-white rounded px-2 py-1 text-xs opacity-80 group-hover:opacity-100"
+                onClick={() => {
+                  setImages((prev) => prev.filter((_, idx) => idx !== i));
+                }}
+              >
+                ✖ Remove
+              </button>
+            </div>
+          ))}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+      )}
+
+      {/* 🧩 Options UI */}
+      <div className="mt-4 space-y-4 border p-4 rounded bg-gray-50">
+        <div>
+          <label className="block text-sm font-medium">
+            # of Hashtags (Max: 20)
+          </label>
+          <input
+            type="number"
+            min={1}
+            max={20} // ← limit to 20
+            value={hashtagCount}
+            onChange={(e) =>
+              setHashtagCount(Math.min(20, Math.max(1, Number(e.target.value))))
+            }
+            className="w-full border px-2 py-1 rounded text-sm"
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium">Tone</label>
+          <select
+            value={tone}
+            onChange={(e) => setTone(e.target.value)}
+            className="w-full border px-2 py-1 rounded text-sm"
+          >
+            <option value="fun">Fun</option>
+            <option value="professional">Professional</option>
+            <option value="witty">Witty</option>
+            <option value="motivational">Motivational</option>
+            <option value="casual">Casual</option>
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="emojis"
+            checked={includeEmojis}
+            onChange={(e) => setIncludeEmojis(e.target.checked)}
           />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+          <label htmlFor="emojis" className="text-sm">
+            Include emojis in caption
+          </label>
+        </div>
+      </div>
+
+      <button
+        onClick={handleGenerate}
+        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        disabled={loading}
+      >
+        {loading ? "Generating..." : "Generate Hashtags & Captions"}
+      </button>
+
+      {results.length > 0 && (
+        <div className="mt-8 space-y-6">
+          {results.map((item, i) => (
+            <div key={i} className="border p-4 rounded shadow-sm">
+              <img
+                src={item.url}
+                alt="preview"
+                className="w-full rounded mb-4"
+              />
+              <textarea
+                className="w-full border p-2 rounded mb-2 text-sm"
+                rows={4}
+                defaultValue={`${item.caption}\n\n${item.hashtags}`}
+              />
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  className="px-3 py-1 bg-gray-200 rounded text-sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(
+                      `${item.caption}\n\n${item.hashtags}`
+                    );
+                    setCopiedIndex(i);
+                    setTimeout(() => setCopiedIndex(null), 2000);
+                  }}
+                >
+                  <span className={copiedIndex === i ? "text-green-600" : ""}>
+                    {copiedIndex === i ? "✔ Copied!" : "📋 Copy Caption"}
+                  </span>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </main>
   );
 }
