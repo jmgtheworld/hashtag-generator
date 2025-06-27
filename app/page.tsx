@@ -6,8 +6,9 @@ import ImageUploader from "./components/ImageUploader";
 export default function Home() {
   const [images, setImages] = useState<string[]>([]);
   const [results, setResults] = useState<
-    { url: string; caption: string; hashtags: string }[]
+    { urls: string[]; caption: string; hashtags: string }[]
   >([]);
+
   const [loading, setLoading] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
@@ -15,30 +16,72 @@ export default function Home() {
   const [hashtagCount, setHashtagCount] = useState(10);
   const [tone, setTone] = useState("fun");
   const [includeEmojis, setIncludeEmojis] = useState(true);
+  const [groupImages, setGroupImages] = useState(false);
+  const [language, setLanguage] = useState("English"); // Default to English
+  const [editableResults, setEditableResults] = useState<string[]>([]);
 
   const handleGenerate = async () => {
     setLoading(true);
-    const newResults = [];
+    const newResults: { urls: string[]; caption: string; hashtags: string }[] =
+      [];
 
-    for (const url of images) {
+    if (groupImages) {
+      // 🧷 Grouped: Send all images as one request
       const res = await fetch("/api/generateHashtags", {
         method: "POST",
         body: JSON.stringify({
-          imageUrl: url,
+          imageUrls: images,
           options: {
             hashtagCount,
             tone,
             includeEmojis,
+            language,
           },
         }),
         headers: { "Content-Type": "application/json" },
       });
 
       const data = await res.json();
-      newResults.push({ url, caption: data.caption, hashtags: data.hashtags });
-    }
 
+      if (data.caption && data.hashtags) {
+        newResults.push({
+          urls: images, // all grouped
+          caption: data.caption,
+          hashtags: data.hashtags,
+        });
+      }
+    } else {
+      // 📦 Individually generate for each image
+      for (const url of images) {
+        const res = await fetch("/api/generateHashtags", {
+          method: "POST",
+          body: JSON.stringify({
+            imageUrl: url,
+            options: {
+              hashtagCount,
+              tone,
+              includeEmojis,
+              language,
+            },
+          }),
+          headers: { "Content-Type": "application/json" },
+        });
+
+        const data = await res.json();
+
+        newResults.push({
+          urls: [url],
+          caption: data.caption,
+          hashtags: data.hashtags,
+        });
+      }
+    }
+    console.log("newResults", newResults);
     setResults(newResults);
+    setEditableResults(
+      newResults.map((item) => `${item.caption}\n\n${item.hashtags}`)
+    );
+
     setLoading(false);
   };
 
@@ -90,6 +133,21 @@ export default function Home() {
         </div>
 
         <div>
+          <label className="block text-sm font-medium">Output Language</label>
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className="w-full border px-2 py-1 rounded text-sm"
+          >
+            <option value="English">English</option>
+            <option value="Korean">Korean</option>
+            <option value="Spanish">Spanish</option>
+            <option value="Japanese">Japanese</option>
+            <option value="French">French</option>
+          </select>
+        </div>
+
+        <div>
           <label className="block text-sm font-medium">Tone</label>
           <select
             value={tone}
@@ -117,48 +175,80 @@ export default function Home() {
         </div>
       </div>
 
-      <button
-        onClick={handleGenerate}
-        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        disabled={loading}
-      >
-        {loading ? "Generating..." : "Generate Hashtags & Captions"}
-      </button>
+      <div className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          id="groupImages"
+          checked={groupImages}
+          onChange={(e) => setGroupImages(e.target.checked)}
+        />
+        <label htmlFor="groupImages" className="text-sm">
+          Group all images and generate 1 caption + hashtag set
+        </label>
+      </div>
 
-      {results.length > 0 && (
-        <div className="mt-8 space-y-6">
-          {results.map((item, i) => (
-            <div key={i} className="border p-4 rounded shadow-sm">
+      <div className="mt-4 flex gap-2">
+        <button
+          onClick={handleGenerate}
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          disabled={loading}
+        >
+          {loading ? "Generating..." : "Generate Hashtags & Captions"}
+        </button>
+
+        <a
+          href="https://www.instagram.com/create/style/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="px-4 py-2 bg-pink-600 text-white rounded hover:bg-pink-700"
+        >
+          📷 Open Instagram
+        </a>
+      </div>
+
+      {results.map((item, i) => (
+        <div key={i} className="border p-4 rounded shadow-sm mt-5">
+          {/* 👇 show all grouped images */}
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            {item.urls?.map((imgUrl, idx) => (
               <img
-                src={item.url}
-                alt="preview"
-                className="w-full rounded mb-4"
+                key={idx}
+                src={imgUrl}
+                alt={`preview-${idx}`}
+                className="w-full rounded"
               />
-              <textarea
-                className="w-full border p-2 rounded mb-2 text-sm"
-                rows={4}
-                defaultValue={`${item.caption}\n\n${item.hashtags}`}
-              />
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  className="px-3 py-1 bg-gray-200 rounded text-sm"
-                  onClick={() => {
-                    navigator.clipboard.writeText(
-                      `${item.caption}\n\n${item.hashtags}`
-                    );
-                    setCopiedIndex(i);
-                    setTimeout(() => setCopiedIndex(null), 2000);
-                  }}
-                >
-                  <span className={copiedIndex === i ? "text-green-600" : ""}>
-                    {copiedIndex === i ? "✔ Copied!" : "📋 Copy Caption"}
-                  </span>
-                </button>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
+
+          <textarea
+            className="w-full border p-2 rounded mb-2 text-sm"
+            rows={4}
+            value={editableResults[i] || ""}
+            onChange={(e) => {
+              const updated = [...editableResults];
+              updated[i] = e.target.value;
+              setEditableResults(updated);
+            }}
+          />
+
+          <div className="flex gap-2 flex-wrap">
+            <button
+              className="px-3 py-1 bg-gray-200 rounded text-sm"
+              onClick={() => {
+                navigator.clipboard.writeText(
+                  `${item.caption}\n\n${item.hashtags}`
+                );
+                setCopiedIndex(i);
+                setTimeout(() => setCopiedIndex(null), 2000);
+              }}
+            >
+              <span className={copiedIndex === i ? "text-green-600" : ""}>
+                {copiedIndex === i ? "✔ Copied!" : "📋 Copy Caption"}
+              </span>
+            </button>
+          </div>
         </div>
-      )}
+      ))}
     </main>
   );
 }

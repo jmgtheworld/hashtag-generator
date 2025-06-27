@@ -4,28 +4,34 @@ import { NextRequest, NextResponse } from "next/server";
 import openai from "../../utils/openai";
 
 export async function POST(req: NextRequest) {
-  const { imageUrl, options } = await req.json();
+  const { imageUrl, imageUrls, options } = await req.json();
+  const hashtagCount = options?.hashtagCount || 10;
+  const tone = options?.tone || "fun";
+  const includeEmojis = options?.includeEmojis !== false;
 
-  // Default options
-  const {
-    hashtagCount = 10,
-    tone = "fun",
-    includeEmojis = true,
-    promptPrefix = "Analyze this photo and generate:",
-  } = options || {};
+  if (!imageUrl && (!imageUrls || imageUrls.length === 0)) {
+    return NextResponse.json({ error: "No images provided." }, { status: 400 });
+  }
 
-  const safeHashtagCount = Math.min(20, Math.max(1, hashtagCount));
+  const language = options?.language || "English";
 
-  // Build prompt text
-  const emojiText = includeEmojis ? "with emojis" : "without emojis";
-  const prompt = `${promptPrefix}
-1. A compelling Instagram caption (${emojiText}, ${tone} tone)
-2. ${safeHashtagCount} relevant, trending hashtags
-Output format:
-Caption: ...
-Hashtags: ...`;
+  const buildPrompt = () => {
+    return `Analyze the image${imageUrls?.length > 1 ? "s" : ""} and generate:
+    1. An Instagram caption in a ${tone} tone ${
+      includeEmojis ? "(with emojis)" : "(no emojis)"
+    }
+    2. Up to ${hashtagCount} relevant, trending hashtags
+
+    Please write the caption and hashtags in ${language}.
+
+    Output format:
+    Caption: ...
+    Hashtags: ...`;
+  };
 
   try {
+    const imageArray = imageUrls || [imageUrl];
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -37,13 +43,13 @@ Hashtags: ...`;
         {
           role: "user",
           content: [
-            {
+            ...imageArray.map((url: string) => ({
               type: "image_url",
-              image_url: { url: imageUrl },
-            },
+              image_url: { url },
+            })),
             {
               type: "text",
-              text: prompt,
+              text: buildPrompt(),
             },
           ],
         },
@@ -52,7 +58,6 @@ Hashtags: ...`;
 
     const content = response.choices[0].message.content || "";
 
-    // Split the response into caption and hashtags
     const captionMatch = content.match(/Caption:\s*(.*?)\s*Hashtags:/s);
     const hashtagsMatch = content.match(/Hashtags:\s*(.*)/s);
 
@@ -61,7 +66,7 @@ Hashtags: ...`;
 
     return NextResponse.json({ caption, hashtags });
   } catch (error) {
-    console.error(error);
+    console.error("OpenAI Error:", error);
     return NextResponse.json(
       { error: "Failed to generate content." },
       { status: 500 }
