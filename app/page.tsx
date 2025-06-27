@@ -11,6 +11,8 @@ export default function Home() {
 
   const [loading, setLoading] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [abortController, setAbortController] =
+    useState<AbortController | null>(null);
 
   // 🆕 Customization states
   const [hashtagCount, setHashtagCount] = useState(10);
@@ -19,6 +21,19 @@ export default function Home() {
   const [groupImages, setGroupImages] = useState(false);
   const [language, setLanguage] = useState("English"); // Default to English
   const [editableResults, setEditableResults] = useState<string[]>([]);
+  const [cancelMessage, setCancelMessage] = useState(false);
+
+  const handleCancel = () => {
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+      setLoading(false);
+      setCancelMessage(true);
+
+      // Automatically hide message after 2.5 seconds
+      setTimeout(() => setCancelMessage(false), 2500);
+    }
+  };
 
   const handleGenerate = async () => {
     setLoading(true);
@@ -26,9 +41,12 @@ export default function Home() {
       [];
 
     if (groupImages) {
+      const controller = new AbortController();
+      setAbortController(controller); // Save it so we can cancel later
       // 🧷 Grouped: Send all images as one request
       const res = await fetch("/api/generateHashtags", {
         method: "POST",
+        signal: controller.signal,
         body: JSON.stringify({
           imageUrls: images,
           options: {
@@ -53,10 +71,13 @@ export default function Home() {
     } else {
       // 📦 Individually generate for each image
       for (const url of images) {
+        const controller = new AbortController();
+        setAbortController(controller); // Save it so we can cancel later
         const res = await fetch("/api/generateHashtags", {
           method: "POST",
           body: JSON.stringify({
             imageUrl: url,
+            signal: controller.signal,
             options: {
               hashtagCount,
               tone,
@@ -186,15 +207,36 @@ export default function Home() {
           Group all images and generate 1 caption + hashtag set
         </label>
       </div>
+      {cancelMessage && (
+        <div className="mt-2 text-red-600 font-medium text-sm">
+          ❌ Generation canceled
+        </div>
+      )}
 
       <div className="mt-4 flex gap-2">
-        <button
-          onClick={handleGenerate}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-          disabled={loading}
-        >
-          {loading ? "Generating..." : "Generate Hashtags & Captions"}
-        </button>
+        {!loading ? (
+          <button
+            onClick={handleGenerate}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Generate Hashtags & Captions
+          </button>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              className="px-4 py-2 bg-gray-400 text-white rounded cursor-not-allowed"
+              disabled
+            >
+              Generating...
+            </button>
+            <button
+              onClick={handleCancel}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
 
         <a
           href="https://www.instagram.com/create/style/"
@@ -206,49 +248,53 @@ export default function Home() {
         </a>
       </div>
 
-      {results.map((item, i) => (
-        <div key={i} className="border p-4 rounded shadow-sm mt-5">
-          {/* 👇 show all grouped images */}
-          <div className="grid grid-cols-2 gap-2 mb-4">
-            {item.urls?.map((imgUrl, idx) => (
-              <img
-                key={idx}
-                src={imgUrl}
-                alt={`preview-${idx}`}
-                className="w-full rounded"
-              />
-            ))}
-          </div>
-
-          <textarea
-            className="w-full border p-2 rounded mb-2 text-sm"
-            rows={4}
-            value={editableResults[i] || ""}
-            onChange={(e) => {
-              const updated = [...editableResults];
-              updated[i] = e.target.value;
-              setEditableResults(updated);
-            }}
-          />
-
-          <div className="flex gap-2 flex-wrap">
-            <button
-              className="px-3 py-1 bg-gray-200 rounded text-sm"
-              onClick={() => {
-                navigator.clipboard.writeText(
-                  `${item.caption}\n\n${item.hashtags}`
-                );
-                setCopiedIndex(i);
-                setTimeout(() => setCopiedIndex(null), 2000);
-              }}
-            >
-              <span className={copiedIndex === i ? "text-green-600" : ""}>
-                {copiedIndex === i ? "✔ Copied!" : "📋 Copy Caption"}
-              </span>
-            </button>
-          </div>
+      {loading ? (
+        <div className="mt-10 flex justify-center items-center">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
-      ))}
+      ) : (
+        results.map((item, i) => (
+          <div key={i} className="border p-4 rounded shadow-sm mt-5">
+            {/* 👇 show all grouped images */}
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {item.urls?.map((imgUrl, idx) => (
+                <img
+                  key={idx}
+                  src={imgUrl}
+                  alt={`preview-${idx}`}
+                  className="w-full rounded"
+                />
+              ))}
+            </div>
+
+            <textarea
+              className="w-full border p-2 rounded mb-2 text-sm"
+              rows={4}
+              value={editableResults[i] || ""}
+              onChange={(e) => {
+                const updated = [...editableResults];
+                updated[i] = e.target.value;
+                setEditableResults(updated);
+              }}
+            />
+
+            <div className="flex gap-2 flex-wrap">
+              <button
+                className="px-3 py-1 bg-gray-200 rounded text-sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(editableResults[i]);
+                  setCopiedIndex(i);
+                  setTimeout(() => setCopiedIndex(null), 2000);
+                }}
+              >
+                <span className={copiedIndex === i ? "text-green-600" : ""}>
+                  {copiedIndex === i ? "✔ Copied!" : "📋 Copy Caption"}
+                </span>
+              </button>
+            </div>
+          </div>
+        ))
+      )}
     </main>
   );
 }
