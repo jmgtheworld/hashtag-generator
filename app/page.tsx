@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
+import { ToastContainer } from "react-toastify";
 
 import "react-toastify/dist/ReactToastify.css";
 
-import { ToastContainer } from "react-toastify";
 import ImageUploader from "./components/ImageUploader";
+import { MAX_USAGE, RESET_INTERVAL_HOURS } from "./constants/limits";
+import { checkAndResetUsage, getRemainingTime } from "./utils/usageLimiter";
 
 export default function Home() {
   const [images, setImages] = useState<string[]>([]);
@@ -27,19 +29,44 @@ export default function Home() {
   const [language, setLanguage] = useState("English"); // Default to English
   const [editableResults, setEditableResults] = useState<string[]>([]);
   const [cancelMessage, setCancelMessage] = useState(false);
-  const [usageCount, setUsageCount] = useState(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("usageCount");
-      return stored ? parseInt(stored, 10) : 0;
-    }
-    return 0;
-  });
 
-  const MAX_USAGE = 30; // or any number you want
+  const [usageCount, setUsageCount] = useState(0);
+
+  useEffect(() => {
+    // ✅ This effect runs **only on the client** after the component mounts.
+    // It checks if there's existing usage data in localStorage (count + timestamp).
+    // If the stored timestamp has expired (based on RESET_INTERVAL_HOURS),
+    // it resets the usage count and clears old data.
+    // Otherwise, it loads the existing count into state.
+
+    if (typeof window !== "undefined") {
+      const storedCount = localStorage.getItem("usageCount");
+      const storedTime = localStorage.getItem("usageTimestamp");
+
+      if (storedCount && storedTime) {
+        const now = Date.now();
+        const then = parseInt(storedTime, 10);
+        const hoursPassed = (now - then) / (1000 * 60 * 60);
+
+        if (hoursPassed >= RESET_INTERVAL_HOURS) {
+          localStorage.removeItem("usageCount");
+          localStorage.removeItem("usageTimestamp");
+          setUsageCount(0);
+        } else {
+          setUsageCount(parseInt(storedCount, 10));
+        }
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem("usageCount", usageCount.toString());
+
+      // Only set timestamp if it doesn't already exist
+      if (!localStorage.getItem("usageTimestamp")) {
+        localStorage.setItem("usageTimestamp", Date.now().toString());
+      }
     }
   }, [usageCount]);
 
@@ -56,8 +83,15 @@ export default function Home() {
   };
 
   const handleGenerate = async () => {
-    if (usageCount >= MAX_USAGE) {
-      toast.error("⚠️ You&#39;ve reached the limit of free generations.");
+    const { allowed, usageCount } = checkAndResetUsage();
+
+    if (!allowed) {
+      const time = getRemainingTime();
+      toast.error(
+        time
+          ? `⚠️ You've hit the ${MAX_USAGE} limit. Try again in ${time.hours}h ${time.minutes}m.`
+          : "⚠️ You've reached the limit of free generations."
+      );
       return;
     }
 
