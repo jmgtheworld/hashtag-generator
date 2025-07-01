@@ -1,6 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { toast } from "react-toastify";
+
+import "react-toastify/dist/ReactToastify.css";
+
+import { ToastContainer } from "react-toastify";
 import ImageUploader from "./components/ImageUploader";
 
 export default function Home() {
@@ -22,6 +27,21 @@ export default function Home() {
   const [language, setLanguage] = useState("English"); // Default to English
   const [editableResults, setEditableResults] = useState<string[]>([]);
   const [cancelMessage, setCancelMessage] = useState(false);
+  const [usageCount, setUsageCount] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("usageCount");
+      return stored ? parseInt(stored, 10) : 0;
+    }
+    return 0;
+  });
+
+  const MAX_USAGE = 30; // or any number you want
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("usageCount", usageCount.toString());
+    }
+  }, [usageCount]);
 
   const handleCancel = () => {
     if (abortController) {
@@ -36,6 +56,32 @@ export default function Home() {
   };
 
   const handleGenerate = async () => {
+    if (usageCount >= MAX_USAGE) {
+      toast.error("⚠️ You&#39;ve reached the limit of free generations.");
+      return;
+    }
+
+    if (images.length === 0) {
+      toast.error("🚫 Please upload at least one image before generating.");
+      return;
+    }
+
+    if (images.length === 0) {
+      toast.error("Upload at least one image!", {
+        theme: "dark", // or "colored", "light"
+        style: {
+          borderRadius: "10px",
+          background: "#dc2626",
+          color: "#fff",
+        },
+      });
+      return;
+    }
+    if (!tone || tone.trim() === "") {
+      toast.error("Please enter a tone.");
+      return;
+    }
+
     setLoading(true);
     const newResults: { urls: string[]; caption: string; hashtags: string }[] =
       [];
@@ -97,12 +143,11 @@ export default function Home() {
         });
       }
     }
-    console.log("newResults", newResults);
     setResults(newResults);
     setEditableResults(
       newResults.map((item) => `${item.caption}\n\n${item.hashtags}`)
     );
-
+    setUsageCount((prev) => prev + 1); // 🔼 Increment here
     setLoading(false);
   };
 
@@ -111,9 +156,12 @@ export default function Home() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">📸 Instagram Post Generator</h1>
       </div>
+      <div className="text-sm text-gray-600 mb-4">
+        {MAX_USAGE - usageCount} free generations remaining.
+      </div>
 
       <ImageUploader onImagesChange={setImages} />
-      {images.length > 0 && results.length === 0 && (
+      {images.length > 0 && (
         <div className="mt-4 grid grid-cols-2 gap-4">
           {images.map((url, i) => (
             <div key={i} className="relative group">
@@ -180,7 +228,17 @@ export default function Home() {
             <option value="witty">Witty</option>
             <option value="motivational">Motivational</option>
             <option value="casual">Casual</option>
+            <option value="custom">Other (Custom)</option>
           </select>
+
+          {tone === "custom" && (
+            <input
+              type="text"
+              placeholder="Enter your own tone..."
+              onChange={(e) => setTone(e.target.value.trim())}
+              className="mt-2 w-full border px-2 py-1 rounded text-sm"
+            />
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -247,6 +305,7 @@ export default function Home() {
           📷 Open Instagram
         </a>
       </div>
+      <ToastContainer position="top-center" autoClose={2000} />
 
       {loading ? (
         <div className="mt-10 flex justify-center items-center">
