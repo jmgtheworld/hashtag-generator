@@ -9,6 +9,7 @@ import "react-toastify/dist/ReactToastify.css";
 import ImageUploader from "./components/ImageUploader";
 import { MAX_USAGE, RESET_INTERVAL_HOURS } from "./constants/limits";
 import { checkAndResetUsage, getRemainingTime } from "./utils/usageLimiter";
+import Image from "next/image";
 
 export default function Home() {
   const [images, setImages] = useState<string[]>([]);
@@ -83,7 +84,7 @@ export default function Home() {
   };
 
   const handleGenerate = async () => {
-    const { allowed, usageCount } = checkAndResetUsage();
+    const { allowed } = checkAndResetUsage();
 
     if (!allowed) {
       const time = getRemainingTime();
@@ -190,8 +191,26 @@ export default function Home() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">📸 Instagram Post Generator</h1>
       </div>
-      <div className="text-sm text-gray-600 mb-4">
-        {MAX_USAGE - usageCount} free generations remaining.
+      <div className="mb-4 p-3 rounded-md bg-blue-50 border border-blue-200 text-blue-800 text-sm shadow-sm flex items-center gap-2">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5 text-blue-500"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M13 16h-1v-4h-1m1-4h.01M12 20c4.418 0 8-3.582 8-8s-3.582-8-8-8-8 3.582-8 8 3.582 8 8 8z"
+          />
+        </svg>
+        <span className="font-medium">
+          You have <span className="font-bold">{MAX_USAGE - usageCount}</span>{" "}
+          free generation{MAX_USAGE - usageCount !== 1 ? "s" : ""} remaining
+          today.
+        </span>
       </div>
 
       <ImageUploader onImagesChange={setImages} />
@@ -199,7 +218,7 @@ export default function Home() {
         <div className="mt-4 grid grid-cols-2 gap-4">
           {images.map((url, i) => (
             <div key={i} className="relative group">
-              <img
+              <Image
                 src={url}
                 alt={`upload-${i}`}
                 className="w-full h-auto rounded border"
@@ -351,7 +370,7 @@ export default function Home() {
             {/* 👇 show all grouped images */}
             <div className="grid grid-cols-2 gap-2 mb-4">
               {item.urls?.map((imgUrl, idx) => (
-                <img
+                <Image
                   key={idx}
                   src={imgUrl}
                   alt={`preview-${idx}`}

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 
 type Result = {
@@ -37,7 +38,7 @@ export default function HashtagDisplay({ results }: { results: Result[] }) {
     <div className="mt-6 space-y-6">
       {editedResults.map((result, index) => (
         <div key={index} className="border p-4 rounded shadow">
-          <img
+          <Image
             src={result.url}
             alt={`Upload ${index + 1}`}
             className="w-full max-w-sm rounded mb-3"

@@ -8,7 +8,7 @@ interface Props {
 
 export default function ImageUploader({ onImagesChange }: Props) {
   const [uploading, setUploading] = useState(false);
-  const [uploadedUrls, setUploadedUrls] = useState<string[]>([]);
+  const [, setUploadedUrls] = useState<string[]>([]);
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
