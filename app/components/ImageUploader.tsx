@@ -10,41 +10,47 @@ export default function ImageUploader({ onImagesChange }: Props) {
   const [uploading, setUploading] = useState(false);
   const [, setUploadedUrls] = useState<string[]>([]);
 
-  const handleFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
+  const handleFiles = useCallback(
+    async (files: FileList | null) => {
+      if (!files || files.length === 0) return;
 
-    setUploading(true);
-    const urls: string[] = [];
+      setUploading(true);
+      const urls: string[] = [];
 
-    for (const file of Array.from(files)) {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append(
-        "upload_preset",
-        process.env.NEXT_PUBLIC_CLOUDINARY_PRESET!
-      );
+      for (const file of Array.from(files)) {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append(
+          "upload_preset",
+          process.env.NEXT_PUBLIC_CLOUDINARY_PRESET!
+        );
 
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
+        const res = await fetch(
+          `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
 
-      const data = await res.json();
-      if (data.secure_url) urls.push(data.secure_url);
-    }
+        const data = await res.json();
+        if (data.secure_url) urls.push(data.secure_url);
+      }
 
-    setUploadedUrls(urls);
-    onImagesChange(urls);
-    setUploading(false);
-  };
+      setUploadedUrls(urls);
+      onImagesChange(urls);
+      setUploading(false);
+    },
+    [onImagesChange]
+  );
 
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    handleFiles(e.dataTransfer.files);
-  }, []);
+  const handleDrop = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      handleFiles(e.dataTransfer.files);
+    },
+    [handleFiles]
+  );
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();

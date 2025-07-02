@@ -10,11 +10,9 @@ import ImageUploader from "./components/ImageUploader";
 import { MAX_USAGE, RESET_INTERVAL_HOURS } from "./constants/limits";
 import { checkAndResetUsage, getRemainingTime } from "./utils/usageLimiter";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
 import Navigation from "./components/Nav";
 
 export default function Home() {
-  const pathname = usePathname();
   const [images, setImages] = useState<string[]>([]);
   const [results, setResults] = useState<
     { urls: string[]; caption: string; hashtags: string }[]
@@ -149,12 +147,15 @@ export default function Home() {
 
       const data = await res.json();
 
-      if (data.caption && data.hashtags) {
+      if (data && data.caption?.trim()) {
         newResults.push({
-          urls: images, // all grouped
-          caption: data.caption,
-          hashtags: data.hashtags,
+          urls: images,
+          caption: data.caption.trim(),
+          hashtags: data.hashtags?.trim() || "",
         });
+        setUsageCount((prev) => prev + 1);
+      } else {
+        toast.error("⚠️ Caption was empty. Generation failed.");
       }
     } else {
       // 📦 Individually generate for each image
@@ -178,22 +179,37 @@ export default function Home() {
 
         const data = await res.json();
 
-        newResults.push({
-          urls: [url],
-          caption: data.caption,
-          hashtags: data.hashtags,
-        });
+        if (data && data.caption?.trim()) {
+          newResults.push({
+            urls: [url],
+            caption: data.caption.trim(),
+            hashtags: data.hashtags?.trim() || "",
+          });
+          setUsageCount((prev) => prev + 1);
+        } else {
+          toast.error("⚠️ Caption was empty. Generation failed.");
+        }
       }
     }
     setResults(newResults);
     setEditableResults(
       newResults.map((item) => `${item.caption}\n\n${item.hashtags}`)
     );
-    setUsageCount((prev) => prev + 1); // 🔼 Increment here
     setLoading(false);
   };
 
-  const remainingTime = getRemainingTime(); // { hours: number, minutes: number }
+  const [remainingTime, setRemainingTime] = useState<{
+    hours: number;
+    minutes: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const time = getRemainingTime();
+      setRemainingTime(time);
+    }
+  }, []);
+
   return (
     <>
       <Navigation />
