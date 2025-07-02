@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import openai from "../../utils/openai";
 
 export async function POST(req: NextRequest) {
-  const { imageUrl, imageUrls, options } = await req.json();
+  const { imageUrl, imageUrls, options, excludeHashtags } = await req.json();
   const hashtagCount = options?.hashtagCount || 10;
   const tone = options?.tone || "fun";
   const includeEmojis = options?.includeEmojis !== false;
@@ -17,16 +17,18 @@ export async function POST(req: NextRequest) {
 
   const buildPrompt = () => {
     return `Analyze the image${imageUrls?.length > 1 ? "s" : ""} and generate:
-    1. An Instagram caption in a ${tone} tone ${
+      1. An Instagram caption in a ${tone} tone ${
       includeEmojis ? "(with emojis)" : "(no emojis)"
-    }
-    2. Up to ${hashtagCount} relevant, trending hashtags
-
-    Please write the caption and hashtags in ${language}.
+    } in ${language}.
+      ${
+        !excludeHashtags
+          ? `2. Up to ${hashtagCount} relevant, trending hashtags\n\n`
+          : ""
+      }
 
     Output format:
     Caption: ...
-    Hashtags: ...`;
+    ${!excludeHashtags ? "Hashtags: ..." : ""}`;
   };
 
   try {

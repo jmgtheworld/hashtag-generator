@@ -27,6 +27,8 @@ export function incrementUsage() {
 }
 
 export function getRemainingTime(): { hours: number; minutes: number } | null {
+  if (typeof window === "undefined") return null; // ✅ Prevent SSR errors
+
   const reset = localStorage.getItem("usageResetTime");
   if (!reset) return null;
 
