@@ -4,6 +4,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import AuthButton from "./AuthBotton";
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -22,15 +23,11 @@ export default function Navigation() {
               alt="Purple Cow Logo"
             />
             <span className="text-xl font-bold text-purple-400">AI</span>
-          </div>
-
-          {/* Desktop Links */}
-          <div className="hidden md:flex items-center gap-6">
             <Link
               href="/"
-              className={`text-sm px-4 py-2 rounded transition ${
+              className={`text-sm px-4 py-2 rounded transition ml-10 ${
                 pathname === "/"
-                  ? "text-blue-700 font-bold bg-sky-100"
+                  ? "text-blue-700 font-bold bg-purple-300"
                   : "text-blue-400 hover:text-black hover:bg-sky-50"
               }`}
             >
@@ -41,12 +38,17 @@ export default function Navigation() {
               href="/review-responder"
               className={`text-sm px-4 py-2 rounded transition ${
                 pathname === "/review-responder"
-                  ? "text-blue-700 font-bold bg-sky-100"
+                  ? "text-blue-700 font-bold bg-purple-300"
                   : "text-blue-400 hover:text-black hover:bg-sky-50"
               }`}
             >
               ⭐ Review Responder
             </Link>
+          </div>
+
+          {/* Desktop Links */}
+          <div className="hidden md:flex items-center gap-6">
+            <AuthButton></AuthButton>
           </div>
 
           {/* Mobile Hamburger */}

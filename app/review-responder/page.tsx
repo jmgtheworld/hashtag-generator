@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Cookies from "js-cookie";
 import Navigation from "../components/Nav";
 import { checkAndResetUsage, getRemainingTime } from "../utils/usageLimiter";
 import { MAX_USAGE, RESET_INTERVAL_HOURS } from "../constants/limits";
@@ -19,36 +20,29 @@ export default function ReviewResponder() {
   } | null>(null);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const count = localStorage.getItem("usageCount");
-      const time = localStorage.getItem("usageTimestamp");
+    const count = Cookies.get("usageCount");
+    const resetTime = Cookies.get("usageResetTime");
 
-      if (count && time) {
-        const now = Date.now();
-        const then = parseInt(time);
-        const hoursPassed = (now - then) / (1000 * 60 * 60);
+    if (count && resetTime) {
+      const now = Date.now();
+      const then = parseInt(resetTime);
+      const hoursPassed = (now - then) / (1000 * 60 * 60);
 
-        if (hoursPassed >= RESET_INTERVAL_HOURS) {
-          localStorage.removeItem("usageCount");
-          localStorage.removeItem("usageTimestamp");
-          setUsageCount(0);
-        } else {
-          setUsageCount(parseInt(count, 10));
-        }
+      if (hoursPassed >= RESET_INTERVAL_HOURS) {
+        Cookies.remove("usageCount");
+        Cookies.remove("usageResetTime");
+        setUsageCount(0);
+      } else {
+        setUsageCount(parseInt(count, 10));
       }
-      setRemainingTime(getRemainingTime());
+    } else {
+      // Set initial cookies if they don't exist
+      Cookies.set("usageCount", "0", { expires: 1 });
+      Cookies.set("usageResetTime", Date.now().toString(), { expires: 1 });
     }
+
+    setRemainingTime(getRemainingTime());
   }, []);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("usageCount", usageCount.toString());
-
-      if (!localStorage.getItem("usageTimestamp")) {
-        localStorage.setItem("usageTimestamp", Date.now().toString());
-      }
-    }
-  }, [usageCount]);
 
   const handleGenerateResponse = async () => {
     const { allowed } = checkAndResetUsage();
@@ -76,7 +70,7 @@ export default function ReviewResponder() {
 
     if (data?.response?.trim()) {
       setResponse(data.response.trim());
-      setUsageCount((prev) => prev + 1); // Only increase if valid
+      setUsageCount((prev) => prev + 1);
     } else {
       alert("❌ No response generated.");
     }
@@ -125,6 +119,7 @@ export default function ReviewResponder() {
           </div>
         </div>
 
+        {/* Review Input & Options */}
         <textarea
           value={reviewText}
           onChange={(e) => setReviewText(e.target.value)}

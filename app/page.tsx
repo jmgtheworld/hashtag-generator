@@ -3,12 +3,16 @@
 import { useState, useEffect, useRef } from "react";
 import { toast } from "react-toastify";
 import { ToastContainer } from "react-toastify";
-
+import Cookies from "js-cookie";
 import "react-toastify/dist/ReactToastify.css";
 
 import ImageUploader from "./components/ImageUploader";
 import { MAX_USAGE, RESET_INTERVAL_HOURS } from "./constants/limits";
-import { checkAndResetUsage, getRemainingTime } from "./utils/usageLimiter";
+import {
+  checkAndResetUsage,
+  getRemainingTime,
+  incrementUsage,
+} from "./utils/usageLimiter";
 import Image from "next/image";
 import Navigation from "./components/Nav";
 
@@ -44,36 +48,29 @@ export default function Home() {
   }, [results]);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedCount = localStorage.getItem("usageCount");
-      const storedTime = localStorage.getItem("usageTimestamp");
+    const count = Cookies.get("usageCount");
+    const resetTime = Cookies.get("usageResetTime");
 
-      if (storedCount && storedTime) {
-        const now = Date.now();
-        const then = parseInt(storedTime, 10);
-        const hoursPassed = (now - then) / (1000 * 60 * 60);
+    if (count && resetTime) {
+      const now = Date.now();
+      const then = parseInt(resetTime);
+      const hoursPassed = (now - then) / (1000 * 60 * 60);
 
-        if (hoursPassed >= RESET_INTERVAL_HOURS) {
-          localStorage.removeItem("usageCount");
-          localStorage.removeItem("usageTimestamp");
-          setUsageCount(0);
-        } else {
-          setUsageCount(parseInt(storedCount, 10));
-        }
+      if (hoursPassed >= RESET_INTERVAL_HOURS) {
+        Cookies.remove("usageCount");
+        Cookies.remove("usageResetTime");
+        setUsageCount(0);
+      } else {
+        setUsageCount(parseInt(count, 10));
       }
+    } else {
+      // Set initial cookies if they don't exist
+      Cookies.set("usageCount", "0", { expires: 1 });
+      Cookies.set("usageResetTime", Date.now().toString(), { expires: 1 });
     }
+
+    setRemainingTime(getRemainingTime());
   }, []);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("usageCount", usageCount.toString());
-
-      // Only set timestamp if it doesn't already exist
-      if (!localStorage.getItem("usageTimestamp")) {
-        localStorage.setItem("usageTimestamp", Date.now().toString());
-      }
-    }
-  }, [usageCount]);
 
   const handleCancel = () => {
     if (abortController) {
@@ -153,6 +150,7 @@ export default function Home() {
           caption: data.caption.trim(),
           hashtags: data.hashtags?.trim() || "",
         });
+        incrementUsage();
         setUsageCount((prev) => prev + 1);
       } else {
         toast.error("⚠️ Caption was empty. Generation failed.");
@@ -185,6 +183,7 @@ export default function Home() {
             caption: data.caption.trim(),
             hashtags: data.hashtags?.trim() || "",
           });
+          incrementUsage();
           setUsageCount((prev) => prev + 1);
         } else {
           toast.error("⚠️ Caption was empty. Generation failed.");

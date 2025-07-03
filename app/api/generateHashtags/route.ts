@@ -1,5 +1,4 @@
 // app/api/generateHashtags/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import openai from "../../utils/openai";
 
