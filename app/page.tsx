@@ -46,7 +46,7 @@ export default function Home() {
     minutes: number;
   } | null>(null);
 
-  const { data: session, status } = useSession();
+  const { status } = useSession();
 
   useEffect(() => {
     const fetchUsage = async () => {
@@ -226,18 +226,6 @@ export default function Home() {
     );
     setLoading(false);
   };
-
-  const [remainingTime, setRemainingTime] = useState<{
-    hours: number;
-    minutes: number;
-  } | null>(null);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const time = getRemainingTime();
-      setRemainingTime(time);
-    }
-  }, []);
 
   return (
     <>
