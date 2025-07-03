@@ -114,10 +114,10 @@ export default function Home() {
   };
 
   const handleGenerate = async () => {
-    if (status !== "authenticated") {
-      toast.error("🚫 You must be logged in to generate captions.");
-      return;
-    }
+    // if (status !== "authenticated") {
+    //   toast.error("🚫 You must be logged in to generate captions.");
+    //   return;
+    // }
     const { allowed } = checkAndResetUsage();
 
     if (!allowed) {
@@ -203,6 +203,7 @@ export default function Home() {
               tone: selectedTone,
               includeEmojis,
               language,
+              excludeHashtags,
             },
           }),
           headers: { "Content-Type": "application/json" },

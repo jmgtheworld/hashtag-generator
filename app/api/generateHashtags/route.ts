@@ -55,17 +55,22 @@ export async function POST(req: NextRequest) {
 
   // 🧠 Prompt for OpenAI
   const buildPrompt = () => {
-    return `Analyze the image${imageUrls?.length > 1 ? "s" : ""} and generate:
-1. An Instagram caption in a ${tone} tone ${
-      includeEmojis ? "(with emojis)" : "(no emojis)"
-    } in ${language}.
-${
-  !excludeHashtags ? `2. Up to ${hashtagCount} relevant, trending hashtags` : ""
-}
+    const toneDescription =
+      tone === "sales pitch"
+        ? "in a persuasive, benefit-driven sales pitch tone designed to attract customers"
+        : `in a ${tone} tone`;
 
-Output format:
-Caption: ...
-${!excludeHashtags ? "Hashtags: ..." : ""}`;
+    return `Analyze the image${imageUrls?.length > 1 ? "s" : ""} and generate:
+        1. An Instagram caption ${toneDescription} ${
+      includeEmojis ? "(include emojis)" : "(no emojis)"
+    } in ${language}.
+        ${
+          !excludeHashtags
+            ? `2. Up to ${hashtagCount} relevant, trending hashtags (exclude generic ones like #food or #instagood)`
+            : ""
+        }
+
+        Make sure the caption highlights benefits and appeals to emotions if possible. Keep it concise, engaging, and marketing-friendly.`;
   };
 
   try {
