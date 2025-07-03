@@ -227,6 +227,18 @@ export default function Home() {
     setLoading(false);
   };
 
+  const [, setRemainingTime] = useState<{
+    hours: number;
+    minutes: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const time = getRemainingTime();
+      setRemainingTime(time);
+    }
+  }, []);
+
   return (
     <>
       <Navigation />
