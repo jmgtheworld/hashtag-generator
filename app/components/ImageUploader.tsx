@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { toast } from "react-toastify";
+import { MAX_IMAGE_UPLOADS } from "../constants/limits";
 
 interface Props {
   onImagesChange: (urls: string[]) => void;
@@ -8,16 +10,25 @@ interface Props {
 
 export default function ImageUploader({ onImagesChange }: Props) {
   const [uploading, setUploading] = useState(false);
-  const [, setUploadedUrls] = useState<string[]>([]);
+  const [uploadedUrls, setUploadedUrls] = useState<string[]>([]);
 
   const handleFiles = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return;
 
+      const newFiles = Array.from(files);
+
+      if (uploadedUrls.length + newFiles.length > MAX_IMAGE_UPLOADS) {
+        toast.error(
+          `🚫 You can only upload up to ${MAX_IMAGE_UPLOADS} images.`
+        );
+        return;
+      }
+
       setUploading(true);
       const urls: string[] = [];
 
-      for (const file of Array.from(files)) {
+      for (const file of newFiles) {
         const formData = new FormData();
         formData.append("file", file);
         formData.append(
@@ -37,11 +48,12 @@ export default function ImageUploader({ onImagesChange }: Props) {
         if (data.secure_url) urls.push(data.secure_url);
       }
 
-      setUploadedUrls(urls);
-      onImagesChange(urls);
+      const updated = [...uploadedUrls, ...urls];
+      setUploadedUrls(updated);
+      onImagesChange(updated);
       setUploading(false);
     },
-    [onImagesChange]
+    [onImagesChange, uploadedUrls]
   );
 
   const handleDrop = useCallback(
@@ -74,7 +86,7 @@ export default function ImageUploader({ onImagesChange }: Props) {
           accept="image/*"
           multiple
           onChange={handleInputChange}
-          disabled={uploading}
+          disabled={uploading || uploadedUrls.length >= MAX_IMAGE_UPLOADS}
           className="hidden"
           id="fileInput"
         />
@@ -109,8 +121,13 @@ export default function ImageUploader({ onImagesChange }: Props) {
                 Click to upload or drag & drop
               </p>
               <p className="text-sm text-gray-500 mt-1">
-                Supports multiple files
+                {uploadedUrls.length}/{MAX_IMAGE_UPLOADS} images uploaded
               </p>
+              {uploadedUrls.length >= MAX_IMAGE_UPLOADS && (
+                <p className="text-red-500 text-sm mt-1">
+                  Maximum of {MAX_IMAGE_UPLOADS} images reached.
+                </p>
+              )}
             </div>
           )}
         </label>
