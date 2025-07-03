@@ -7,7 +7,11 @@ import { toast } from "react-toastify";
 import { ToastContainer } from "react-toastify";
 
 import { checkAndResetUsage, getRemainingTime } from "../utils/usageLimiter";
-import { MAX_USAGE, RESET_INTERVAL_HOURS } from "../constants/limits";
+import {
+  MAX_USAGE,
+  RESET_INTERVAL_HOURS,
+  TRIAL_USAGE,
+} from "../constants/limits";
 import { useSession } from "next-auth/react";
 
 export default function ReviewResponder() {
@@ -18,7 +22,11 @@ export default function ReviewResponder() {
   const [loading, setLoading] = useState(false);
 
   const [usageCount, setUsageCount] = useState(0);
-  const [remainingTime, setRemainingTime] = useState<{
+  const [, setRemainingTime] = useState<{
+    hours: number;
+    minutes: number;
+  } | null>(null);
+  const [resetIn, setResetIn] = useState<{
     hours: number;
     minutes: number;
   } | null>(null);
@@ -44,11 +52,29 @@ export default function ReviewResponder() {
       }
     } else {
       // If cookie missing or user not logged in, default to 0 usage
-      setUsageCount(30);
+      setUsageCount(TRIAL_USAGE);
     }
 
     setRemainingTime(getRemainingTime());
   }, []);
+
+  useEffect(() => {
+    const fetchUsage = async () => {
+      const res = await fetch("/api/checkUsage");
+      const data = await res.json();
+
+      if (data?.count !== undefined) {
+        setUsageCount(data.count);
+        if (data.resetIn) {
+          setResetIn(data.resetIn);
+        }
+      }
+    };
+
+    if (status === "authenticated") {
+      fetchUsage();
+    }
+  }, [status]);
 
   const handleGenerateResponse = async () => {
     if (status !== "authenticated") {
@@ -118,10 +144,10 @@ export default function ReviewResponder() {
               />
             </svg>
 
-            {remainingTime && (
+            {/* Tooltip */}
+            {resetIn && (
               <div className="absolute left-6 top-0 z-20 bg-white border border-gray-300 text-gray-800 px-3 py-2 text-xs rounded-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none w-max max-w-xs">
-                ⏳ Usage resets in {remainingTime.hours}h{" "}
-                {remainingTime.minutes}m
+                ⏳ Usage resets in {resetIn.hours}h {resetIn.minutes}m
               </div>
             )}
           </div>

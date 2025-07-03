@@ -8,7 +8,11 @@ import "react-toastify/dist/ReactToastify.css";
 import { useSession } from "next-auth/react";
 
 import ImageUploader from "./components/ImageUploader";
-import { MAX_USAGE, RESET_INTERVAL_HOURS } from "./constants/limits";
+import {
+  MAX_USAGE,
+  RESET_INTERVAL_HOURS,
+  TRIAL_USAGE,
+} from "./constants/limits";
 import {
   checkAndResetUsage,
   getRemainingTime,
@@ -90,8 +94,8 @@ export default function Home() {
         setUsageCount(isNaN(parsedCount) ? 0 : parsedCount);
       }
     } else {
-      // If not logged in or cookie missing
-      setUsageCount(30); // 👈 explicitly set remaining usage to 0
+      // If not logged in or cookie missing set usage to trial mode
+      setUsageCount(TRIAL_USAGE);
     }
 
     setRemainingTime(getRemainingTime());
