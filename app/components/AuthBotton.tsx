@@ -1,26 +1,46 @@
 "use client";
 
+import { useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
+import Cookies from "js-cookie";
 
 export default function AuthButton() {
   const { data: session, status } = useSession();
 
-  if (status === "loading") {
-    return <p className="text-sm text-gray-500">Checking session...</p>;
-  }
+  useEffect(() => {
+    const fetchUsage = async () => {
+      const res = await fetch("/api/checkUsage");
+      if (!res.ok) return;
+
+      const { count, resetIn } = await res.json();
+
+      Cookies.set("usageCount", count.toString(), { expires: 1 });
+      const resetTime =
+        Date.now() + resetIn.hours * 3600000 + resetIn.minutes * 60000;
+      Cookies.set("usageResetTime", resetTime.toString(), { expires: 1 });
+    };
+
+    if (status === "authenticated") {
+      fetchUsage();
+    } else if (status === "unauthenticated") {
+      Cookies.remove("usageCount");
+      Cookies.remove("usageResetTime");
+    }
+  }, [status]);
 
   if (session) {
     return (
-      <div className="flex items-center gap-3 text-sm">
-        <span className="text-gray-600 font-bold">
-          Signed in as{" "}
-          <span className="font-semibold text-blue-600">
-            {session.user?.email}
-          </span>
+      <div className="flex items-center gap-4">
+        <span className="text-sm text-blue-400">
+          Signed in as {session.user?.email}
         </span>
         <button
-          onClick={() => signOut()}
-          className="px-3 py-1.5 text-sm font-medium bg-red-500 text-white rounded hover:bg-red-600 transition-colors duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-red-300"
+          onClick={() => {
+            signOut();
+            Cookies.remove("usageCount");
+            Cookies.remove("usageResetTime");
+          }}
+          className="px-3 py-1 bg-red-500 rounded hover:bg-red-800"
         >
           Sign out
         </button>
@@ -31,9 +51,9 @@ export default function AuthButton() {
   return (
     <button
       onClick={() => signIn()}
-      className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+      className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
     >
-      🔐 Sign in with Google
+      Sign in
     </button>
   );
 }

@@ -29,15 +29,21 @@ export function incrementUsage() {
 }
 
 export function getRemainingTime(): { hours: number; minutes: number } | null {
-  const reset = Cookies.get("usageTimestamp");
-  if (!reset) return null;
+  const resetTime = Cookies.get("usageResetTime");
 
-  const msLeft =
-    parseInt(reset, 10) + RESET_INTERVAL_HOURS * 60 * 60 * 1000 - Date.now();
-  if (msLeft <= 0) return null;
+  if (!resetTime) return null;
 
-  const minutes = Math.floor(msLeft / (1000 * 60)) % 60;
-  const hours = Math.floor(msLeft / (1000 * 60 * 60));
+  const then = parseInt(resetTime, 10);
+  const now = Date.now();
+  const nextReset = then + RESET_INTERVAL_HOURS * 60 * 60 * 1000;
+
+  const diff = nextReset - now;
+
+  if (diff <= 0) return { hours: 0, minutes: 0 };
+
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  const minutes = Math.ceil((diff % (1000 * 60 * 60)) / (1000 * 60));
+
   return { hours, minutes };
 }
 

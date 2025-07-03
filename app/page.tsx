@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import { ToastContainer } from "react-toastify";
 import Cookies from "js-cookie";
 import "react-toastify/dist/ReactToastify.css";
+import { useSession } from "next-auth/react";
 
 import ImageUploader from "./components/ImageUploader";
 import { MAX_USAGE, RESET_INTERVAL_HOURS } from "./constants/limits";
@@ -40,6 +41,30 @@ export default function Home() {
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const [usageCount, setUsageCount] = useState(0);
   const [excludeHashtags, setExcludeHashtags] = useState(false);
+  const [resetIn, setResetIn] = useState<{
+    hours: number;
+    minutes: number;
+  } | null>(null);
+
+  const { data: session, status } = useSession();
+
+  useEffect(() => {
+    const fetchUsage = async () => {
+      const res = await fetch("/api/checkUsage");
+      const data = await res.json();
+
+      if (data?.count !== undefined) {
+        setUsageCount(data.count);
+        if (data.resetIn) {
+          setResetIn(data.resetIn);
+        }
+      }
+    };
+
+    if (status === "authenticated") {
+      fetchUsage();
+    }
+  }, [status]);
 
   useEffect(() => {
     if (results.length > 0 && resultsRef.current) {
@@ -52,6 +77,7 @@ export default function Home() {
     const resetTime = Cookies.get("usageResetTime");
 
     if (count && resetTime) {
+      console.log("hh");
       const now = Date.now();
       const then = parseInt(resetTime);
       const hoursPassed = (now - then) / (1000 * 60 * 60);
@@ -61,12 +87,12 @@ export default function Home() {
         Cookies.remove("usageResetTime");
         setUsageCount(0);
       } else {
-        setUsageCount(parseInt(count, 10));
+        const parsedCount = parseInt(count, 10);
+        setUsageCount(isNaN(parsedCount) ? 0 : parsedCount);
       }
     } else {
-      // Set initial cookies if they don't exist
-      Cookies.set("usageCount", "0", { expires: 1 });
-      Cookies.set("usageResetTime", Date.now().toString(), { expires: 1 });
+      // If not logged in or cookie missing
+      setUsageCount(30); // 👈 explicitly set remaining usage to 0
     }
 
     setRemainingTime(getRemainingTime());
@@ -85,6 +111,10 @@ export default function Home() {
   };
 
   const handleGenerate = async () => {
+    if (status !== "authenticated") {
+      toast.error("🚫 You must be logged in to generate captions.");
+      return;
+    }
     const { allowed } = checkAndResetUsage();
 
     if (!allowed) {
@@ -236,17 +266,19 @@ export default function Home() {
             </svg>
 
             {/* Tooltip */}
-            {remainingTime && (
+            {resetIn && (
               <div className="absolute left-6 top-0 z-20 bg-white border border-gray-300 text-gray-800 px-3 py-2 text-xs rounded-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none w-max max-w-xs">
-                ⏳ Usage resets in {remainingTime.hours}h{" "}
-                {remainingTime.minutes}m
+                ⏳ Usage resets in {resetIn.hours}h {resetIn.minutes}m
               </div>
             )}
           </div>
 
           {/* Usage message */}
           <div className="font-medium text-sm">
-            You have <span className="font-bold">{MAX_USAGE - usageCount}</span>{" "}
+            You have{" "}
+            <span className="font-bold">
+              {Math.max(MAX_USAGE - usageCount, 0)}
+            </span>{" "}
             free generation{MAX_USAGE - usageCount !== 1 ? "s" : ""} remaining
             today.
           </div>
