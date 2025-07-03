@@ -77,7 +77,6 @@ export default function Home() {
     const resetTime = Cookies.get("usageResetTime");
 
     if (count && resetTime) {
-      console.log("hh");
       const now = Date.now();
       const then = parseInt(resetTime);
       const hoursPassed = (now - then) / (1000 * 60 * 60);

@@ -3,8 +3,12 @@
 import { useState, useEffect } from "react";
 import Cookies from "js-cookie";
 import Navigation from "../components/Nav";
+import { toast } from "react-toastify";
+import { ToastContainer } from "react-toastify";
+
 import { checkAndResetUsage, getRemainingTime } from "../utils/usageLimiter";
 import { MAX_USAGE, RESET_INTERVAL_HOURS } from "../constants/limits";
+import { useSession } from "next-auth/react";
 
 export default function ReviewResponder() {
   const [reviewText, setReviewText] = useState("");
@@ -19,13 +23,15 @@ export default function ReviewResponder() {
     minutes: number;
   } | null>(null);
 
+  const { status } = useSession();
+
   useEffect(() => {
     const count = Cookies.get("usageCount");
     const resetTime = Cookies.get("usageResetTime");
 
     if (count && resetTime) {
       const now = Date.now();
-      const then = parseInt(resetTime);
+      const then = parseInt(resetTime, 10);
       const hoursPassed = (now - then) / (1000 * 60 * 60);
 
       if (hoursPassed >= RESET_INTERVAL_HOURS) {
@@ -33,31 +39,38 @@ export default function ReviewResponder() {
         Cookies.remove("usageResetTime");
         setUsageCount(0);
       } else {
-        setUsageCount(parseInt(count, 10));
+        const parsedCount = parseInt(count, 10);
+        setUsageCount(isNaN(parsedCount) ? 0 : parsedCount);
       }
     } else {
-      // Set initial cookies if they don't exist
-      Cookies.set("usageCount", "0", { expires: 1 });
-      Cookies.set("usageResetTime", Date.now().toString(), { expires: 1 });
+      // If cookie missing or user not logged in, default to 0 usage
+      setUsageCount(30);
     }
 
     setRemainingTime(getRemainingTime());
   }, []);
 
   const handleGenerateResponse = async () => {
+    if (status !== "authenticated") {
+      toast.error("🚫 You must be logged in to generate captions.");
+      return;
+    }
     const { allowed } = checkAndResetUsage();
 
     if (!allowed) {
       const time = getRemainingTime();
-      alert(
+      toast.error(
         time
           ? `⚠️ You've hit the ${MAX_USAGE} limit. Try again in ${time.hours}h ${time.minutes}m.`
-          : "⚠️ You've reached the free usage limit."
+          : "⚠️ You've reached the limit of free generations."
       );
       return;
     }
 
-    if (!reviewText.trim()) return alert("Please enter a review.");
+    if (!reviewText.trim()) {
+      toast.error("🚫 You must enter a valid review.");
+      return;
+    }
 
     setLoading(true);
     const res = await fetch("/api/generateReviewResponse", {
@@ -72,7 +85,7 @@ export default function ReviewResponder() {
       setResponse(data.response.trim());
       setUsageCount((prev) => prev + 1);
     } else {
-      alert("❌ No response generated.");
+      toast.error("🚫 No response generated");
     }
 
     setLoading(false);
@@ -81,6 +94,7 @@ export default function ReviewResponder() {
   return (
     <div>
       <Navigation />
+      <ToastContainer position="top-center" autoClose={2000} />
       <main className="bg-white min-h-screen p-8 max-w-xl mx-auto">
         <h1 className="text-2xl font-bold mb-4">⭐ Google Review Responder</h1>
         <p className="text-sm text-gray-600 mb-4">

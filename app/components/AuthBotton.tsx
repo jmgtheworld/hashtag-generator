@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
 import Cookies from "js-cookie";
+import Image from "next/image";
 
 export default function AuthButton() {
   const { data: session, status } = useSession();
@@ -31,16 +32,23 @@ export default function AuthButton() {
   if (session) {
     return (
       <div className="flex items-center gap-4">
-        <span className="text-sm text-blue-400">
-          Signed in as {session.user?.email}
-        </span>
+        {session.user?.image && (
+          <Image
+            src={session.user.image}
+            alt="User avatar"
+            width={32}
+            height={32}
+            className="rounded-full"
+          />
+        )}
+        <span className="text-sm text-blue-400">{session.user?.email}</span>
         <button
           onClick={() => {
             signOut();
             Cookies.remove("usageCount");
             Cookies.remove("usageResetTime");
           }}
-          className="px-3 py-1 bg-red-500 rounded hover:bg-red-800"
+          className="px-3 py-1 bg-red-500 rounded hover:bg-red-800 text-white"
         >
           Sign out
         </button>
