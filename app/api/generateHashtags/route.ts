@@ -104,7 +104,10 @@ export async function POST(req: NextRequest) {
     const captionMatch = content.match(/Caption:\s*(.*?)\s*Hashtags:/s);
     const hashtagsMatch = content.match(/Hashtags:\s*(.*)/s);
 
-    const caption = captionMatch?.[1]?.trim() || "";
+    let caption = captionMatch?.[1]?.trim() || "";
+
+    // Remove any trailing number or "2." from the end
+    caption = caption.replace(/2\.$/, "").trim();
     const hashtags = hashtagsMatch?.[1]?.trim() || "";
 
     // ✅ Update usage only if caption was successfully generated

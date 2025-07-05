@@ -11,7 +11,8 @@ import ImageUploader from "./components/ImageUploader";
 import {
   MAX_USAGE,
   RESET_INTERVAL_HOURS,
-  TRIAL_USAGE,
+  FREE_USAGE,
+  MAX_TRIAL_USAGE,
 } from "./constants/limits";
 import {
   checkAndResetUsage,
@@ -44,11 +45,12 @@ export default function Home() {
   const [cancelMessage, setCancelMessage] = useState(false);
   const resultsRef = useRef<HTMLDivElement | null>(null);
   const [usageCount, setUsageCount] = useState(0);
-  const [excludeHashtags, setExcludeHashtags] = useState(false);
+  const [excludeHashtags] = useState(false);
   const [resetIn, setResetIn] = useState<{
     hours: number;
     minutes: number;
   } | null>(null);
+  const [isTrialUser, setIsTrialUser] = useState(false);
 
   const { status } = useSession();
 
@@ -62,6 +64,7 @@ export default function Home() {
         if (data.resetIn) {
           setResetIn(data.resetIn);
         }
+        setIsTrialUser(data.trial || false); // set trial status
       }
     };
 
@@ -95,7 +98,7 @@ export default function Home() {
       }
     } else {
       // If not logged in or cookie missing set usage to trial mode
-      setUsageCount(TRIAL_USAGE);
+      setUsageCount(FREE_USAGE);
     }
 
     setRemainingTime(getRemainingTime());
@@ -281,10 +284,16 @@ export default function Home() {
           <div className="font-medium text-sm">
             You have{" "}
             <span className="font-bold">
-              {Math.max(MAX_USAGE - usageCount, 0)}
+              {Math.max(
+                (isTrialUser ? MAX_TRIAL_USAGE : MAX_USAGE) - usageCount,
+                0
+              )}
             </span>{" "}
-            free generation{MAX_USAGE - usageCount !== 1 ? "s" : ""} remaining
-            today.
+            free generation
+            {(isTrialUser ? MAX_TRIAL_USAGE : MAX_USAGE) - usageCount !== 1
+              ? "s"
+              : ""}{" "}
+            remaining today.
           </div>
         </div>
 
@@ -315,7 +324,7 @@ export default function Home() {
 
         {/* 🧩 Options UI */}
         <div className="mt-4 space-y-4 border p-4 rounded bg-gray-50">
-          <div className="flex items-center gap-2">
+          {/* <div className="flex items-center gap-2">
             <input
               type="checkbox"
               id="excludeHashtags"
@@ -325,7 +334,7 @@ export default function Home() {
             <label htmlFor="excludeHashtags" className="text-sm">
               Exclude hashtags from output
             </label>
-          </div>
+          </div> */}
 
           {!excludeHashtags && (
             <div>

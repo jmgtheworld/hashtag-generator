@@ -41,7 +41,6 @@ export default function AuthButton() {
             className="rounded-full"
           />
         )}
-        <span className="text-sm text-blue-400">{session.user?.email}</span>
         <button
           onClick={() => {
             signOut();

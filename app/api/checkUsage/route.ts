@@ -6,6 +6,8 @@ import {
   ACCEPTED_EMAILS,
   MAX_USAGE,
   RESET_INTERVAL_HOURS,
+  TRIAL_EMAILS,
+  MAX_TRIAL_USAGE,
 } from "@/app/constants/limits";
 
 export async function GET() {
@@ -16,10 +18,13 @@ export async function GET() {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
   }
 
-  // ❌ Not in allowlist? Return 0 usage
-  if (!ACCEPTED_EMAILS.includes(email)) {
+  const isTrial = TRIAL_EMAILS.includes(email);
+  const maxAllowed = isTrial ? MAX_TRIAL_USAGE : MAX_USAGE;
+
+  // ❌ Completely block users not on any list
+  if (!ACCEPTED_EMAILS.includes(email) && !isTrial) {
     return NextResponse.json({
-      count: MAX_USAGE, // show 0 remaining
+      count: maxAllowed,
       remaining: 0,
       resetIn: { hours: 0, minutes: 0 },
       message: "This email is not authorized for generation.",
@@ -45,13 +50,19 @@ export async function GET() {
     await userRef.set(usageData, { merge: true });
   }
 
-  const remaining = MAX_USAGE - usageData.count;
+  const remaining = maxAllowed - usageData.count;
   const resetInMs =
     usageData.lastReset + RESET_INTERVAL_HOURS * 3600 * 1000 - now;
+
   const resetIn = {
     hours: Math.floor(resetInMs / (1000 * 60 * 60)),
     minutes: Math.ceil((resetInMs % (1000 * 60 * 60)) / (1000 * 60)),
   };
 
-  return NextResponse.json({ count: usageData.count, remaining, resetIn });
+  return NextResponse.json({
+    count: usageData.count,
+    remaining,
+    resetIn,
+    trial: isTrial,
+  });
 }

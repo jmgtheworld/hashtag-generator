@@ -10,7 +10,7 @@ import { checkAndResetUsage, getRemainingTime } from "../utils/usageLimiter";
 import {
   MAX_USAGE,
   RESET_INTERVAL_HOURS,
-  TRIAL_USAGE,
+  FREE_USAGE,
 } from "../constants/limits";
 import { useSession } from "next-auth/react";
 
@@ -30,6 +30,7 @@ export default function ReviewResponder() {
     hours: number;
     minutes: number;
   } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const { status } = useSession();
 
@@ -52,7 +53,7 @@ export default function ReviewResponder() {
       }
     } else {
       // If cookie missing or user not logged in, default to 0 usage
-      setUsageCount(TRIAL_USAGE);
+      setUsageCount(FREE_USAGE);
     }
 
     setRemainingTime(getRemainingTime());
@@ -77,10 +78,10 @@ export default function ReviewResponder() {
   }, [status]);
 
   const handleGenerateResponse = async () => {
-    if (status !== "authenticated") {
-      toast.error("🚫 You must be logged in to generate captions.");
-      return;
-    }
+    // if (status !== "authenticated") {
+    //   toast.error("🚫 You must be logged in to generate captions.");
+    //   return;
+    // }
     const { allowed } = checkAndResetUsage();
 
     if (!allowed) {
@@ -218,10 +219,14 @@ export default function ReviewResponder() {
               rows={5}
             />
             <button
-              onClick={() => navigator.clipboard.writeText(response)}
+              onClick={() => {
+                navigator.clipboard.writeText(response);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }}
               className="mt-2 px-3 py-1 bg-gray-200 text-sm rounded hover:bg-gray-300"
             >
-              📋 Copy
+              {copied ? "✅ Copied!" : "📋 Copy"}
             </button>
           </div>
         )}
