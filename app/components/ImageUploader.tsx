@@ -6,9 +6,10 @@ import { MAX_IMAGE_UPLOADS } from "../constants/limits";
 
 interface Props {
   onImagesChange: (urls: string[]) => void;
+  images: string[];
 }
 
-export default function ImageUploader({ onImagesChange }: Props) {
+export default function ImageUploader({ onImagesChange, images }: Props) {
   const [uploading, setUploading] = useState(false);
   const [uploadedUrls, setUploadedUrls] = useState<string[]>([]);
 
@@ -121,7 +122,7 @@ export default function ImageUploader({ onImagesChange }: Props) {
                 Click to upload or drag & drop
               </p>
               <p className="text-sm text-gray-500 mt-1">
-                {uploadedUrls.length}/{MAX_IMAGE_UPLOADS} images uploaded
+                {images.length}/{MAX_IMAGE_UPLOADS} images uploaded
               </p>
               {uploadedUrls.length >= MAX_IMAGE_UPLOADS && (
                 <p className="text-red-500 text-sm mt-1">

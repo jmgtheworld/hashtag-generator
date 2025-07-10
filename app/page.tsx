@@ -249,6 +249,7 @@ export default function Home() {
       newResults.map((item) => `${item.caption}\n\n${item.hashtags}`)
     );
     setLoading(false);
+    setImages([]);
   };
 
   const [, setRemainingTime] = useState<{
@@ -320,7 +321,7 @@ export default function Home() {
           )}
         </div>
 
-        <ImageUploader onImagesChange={setImages} />
+        <ImageUploader onImagesChange={setImages} images={images} />
         {images.length > 0 && (
           <div className="mt-4 grid grid-cols-2 gap-4">
             {images.map((url, i) => (

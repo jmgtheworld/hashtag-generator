@@ -7,12 +7,7 @@ import { toast } from "react-toastify";
 import { ToastContainer } from "react-toastify";
 
 import { checkAndResetUsage, getRemainingTime } from "../utils/usageLimiter";
-import {
-  MAX_USAGE,
-  RESET_INTERVAL_HOURS,
-  FREE_USAGE,
-  MAX_TRIAL_USAGE,
-} from "../constants/limits";
+import { MAX_USAGE, FREE_USAGE, MAX_TRIAL_USAGE } from "../constants/limits";
 import { useSession } from "next-auth/react";
 
 export default function ReviewResponder() {
