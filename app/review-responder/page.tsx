@@ -11,6 +11,7 @@ import {
   MAX_USAGE,
   RESET_INTERVAL_HOURS,
   FREE_USAGE,
+  MAX_TRIAL_USAGE,
 } from "../constants/limits";
 import { useSession } from "next-auth/react";
 
@@ -20,61 +21,82 @@ export default function ReviewResponder() {
   const [sentiment, setSentiment] = useState("auto");
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
+  const [fetchUsageDataLoaded, setFetchUsageDataLoaded] = useState(false);
 
   const [usageCount, setUsageCount] = useState(0);
-  const [, setRemainingTime] = useState<{
-    hours: number;
-    minutes: number;
-  } | null>(null);
+
   const [resetIn, setResetIn] = useState<{
     hours: number;
     minutes: number;
   } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isTrialUser, setIsTrialUser] = useState(false);
 
   const { status } = useSession();
 
   useEffect(() => {
-    const count = Cookies.get("usageCount");
-    const resetTime = Cookies.get("usageResetTime");
+    const checkLocalUsage = async () => {
+      const cookieCount = Cookies.get("usageCount");
+      const cookieReset = Cookies.get("usageResetTime");
+      const cookieTrial = Cookies.get("isTrialUser");
 
-    if (count && resetTime) {
       const now = Date.now();
-      const then = parseInt(resetTime, 10);
-      const hoursPassed = (now - then) / (1000 * 60 * 60);
+      const resetTime = parseInt(cookieReset || "0", 10);
 
-      if (hoursPassed >= RESET_INTERVAL_HOURS) {
-        Cookies.remove("usageCount");
-        Cookies.remove("usageResetTime");
-        setUsageCount(0);
-      } else {
-        const parsedCount = parseInt(count, 10);
-        setUsageCount(isNaN(parsedCount) ? 0 : parsedCount);
+      // If valid cookies exist and reset time hasn't passed
+      if (
+        cookieCount &&
+        resetTime &&
+        now < resetTime &&
+        (status !== "authenticated" || status === "authenticated")
+      ) {
+        setUsageCount(parseInt(cookieCount, 10));
+        setIsTrialUser(cookieTrial === "true");
+        const timeLeft = resetTime - now;
+        setResetIn({
+          hours: Math.floor(timeLeft / (1000 * 60 * 60)),
+          minutes: Math.ceil((timeLeft % (1000 * 60 * 60)) / (1000 * 60)),
+        });
+        setFetchUsageDataLoaded(true);
+        return;
       }
-    } else {
-      // If cookie missing or user not logged in, default to 0 usage
-      setUsageCount(FREE_USAGE);
-    }
 
-    setRemainingTime(getRemainingTime());
-  }, []);
+      // 🧠 Fallback to API check
+      if (status === "authenticated") {
+        try {
+          const res = await fetch("/api/checkUsage");
+          const data = await res.json();
 
-  useEffect(() => {
-    const fetchUsage = async () => {
-      const res = await fetch("/api/checkUsage");
-      const data = await res.json();
+          if (data?.count !== undefined) {
+            setUsageCount(data.count);
+            setIsTrialUser(data.trial || false);
+            setResetIn(data.resetIn || null);
 
-      if (data?.count !== undefined) {
-        setUsageCount(data.count);
-        if (data.resetIn) {
-          setResetIn(data.resetIn);
+            // 📝 Save to cookies
+            Cookies.set("usageCount", String(data.count));
+            Cookies.set(
+              "usageResetTime",
+              String(
+                Date.now() +
+                  data.resetIn.hours * 3600 * 1000 +
+                  data.resetIn.minutes * 60 * 1000
+              )
+            );
+            Cookies.set("isTrialUser", String(data.trial || false));
+          }
+        } catch (e) {
+          console.error("Failed to fetch usage:", e);
+        } finally {
+          setFetchUsageDataLoaded(true);
         }
+      } else {
+        // Unauthenticated fallback
+        setUsageCount(FREE_USAGE);
+        setFetchUsageDataLoaded(true);
       }
     };
 
-    if (status === "authenticated") {
-      fetchUsage();
-    }
+    checkLocalUsage();
   }, [status]);
 
   const handleGenerateResponse = async () => {
@@ -152,12 +174,28 @@ export default function ReviewResponder() {
               </div>
             )}
           </div>
-
-          <div className="font-medium text-sm">
-            You have <span className="font-bold">{MAX_USAGE - usageCount}</span>{" "}
-            free generation{MAX_USAGE - usageCount !== 1 ? "s" : ""} remaining
-            today.
-          </div>
+          {/* Usage message */}
+          {!fetchUsageDataLoaded ? (
+            <div className="flex items-center text-sm text-gray-600 gap-2">
+              <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+              <span>Loading usage data...</span>
+            </div>
+          ) : (
+            <div className="font-medium text-sm">
+              You have{" "}
+              <span className="font-bold">
+                {Math.max(
+                  (isTrialUser ? MAX_TRIAL_USAGE : MAX_USAGE) - usageCount,
+                  0
+                )}
+              </span>{" "}
+              free generation
+              {(isTrialUser ? MAX_TRIAL_USAGE : MAX_USAGE) - usageCount !== 1
+                ? "s"
+                : ""}{" "}
+              remaining today.
+            </div>
+          )}
         </div>
 
         {/* Review Input & Options */}

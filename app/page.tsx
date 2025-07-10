@@ -8,12 +8,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { useSession } from "next-auth/react";
 
 import ImageUploader from "./components/ImageUploader";
-import {
-  MAX_USAGE,
-  RESET_INTERVAL_HOURS,
-  FREE_USAGE,
-  MAX_TRIAL_USAGE,
-} from "./constants/limits";
+import { MAX_USAGE, FREE_USAGE, MAX_TRIAL_USAGE } from "./constants/limits";
 import {
   checkAndResetUsage,
   getRemainingTime,
@@ -51,26 +46,73 @@ export default function Home() {
     minutes: number;
   } | null>(null);
   const [isTrialUser, setIsTrialUser] = useState(false);
+  const [fetchUsageDataLoaded, setFetchUsageDataLoaded] = useState(false);
 
   const { status } = useSession();
 
   useEffect(() => {
-    const fetchUsage = async () => {
-      const res = await fetch("/api/checkUsage");
-      const data = await res.json();
+    const checkLocalUsage = async () => {
+      const cookieCount = Cookies.get("usageCount");
+      const cookieReset = Cookies.get("usageResetTime");
+      const cookieTrial = Cookies.get("isTrialUser");
 
-      if (data?.count !== undefined) {
-        setUsageCount(data.count);
-        if (data.resetIn) {
-          setResetIn(data.resetIn);
+      const now = Date.now();
+      const resetTime = parseInt(cookieReset || "0", 10);
+
+      // If valid cookies exist and reset time hasn't passed
+      if (
+        cookieCount &&
+        resetTime &&
+        now < resetTime &&
+        (status !== "authenticated" || status === "authenticated")
+      ) {
+        setUsageCount(parseInt(cookieCount, 10));
+        setIsTrialUser(cookieTrial === "true");
+        const timeLeft = resetTime - now;
+        setResetIn({
+          hours: Math.floor(timeLeft / (1000 * 60 * 60)),
+          minutes: Math.ceil((timeLeft % (1000 * 60 * 60)) / (1000 * 60)),
+        });
+        setFetchUsageDataLoaded(true);
+        return;
+      }
+
+      // 🧠 Fallback to API check
+      if (status === "authenticated") {
+        try {
+          const res = await fetch("/api/checkUsage");
+          const data = await res.json();
+
+          if (data?.count !== undefined) {
+            setUsageCount(data.count);
+            setIsTrialUser(data.trial || false);
+            setResetIn(data.resetIn || null);
+
+            // 📝 Save to cookies
+            Cookies.set("usageCount", String(data.count));
+            Cookies.set(
+              "usageResetTime",
+              String(
+                Date.now() +
+                  data.resetIn.hours * 3600 * 1000 +
+                  data.resetIn.minutes * 60 * 1000
+              )
+            );
+            Cookies.set("isTrialUser", String(data.trial || false));
+          }
+        } catch (e) {
+          console.error("Failed to fetch usage:", e);
+        } finally {
+          setFetchUsageDataLoaded(true);
         }
-        setIsTrialUser(data.trial || false); // set trial status
+      } else {
+        // Unauthenticated fallback
+        setUsageCount(FREE_USAGE);
+        setFetchUsageDataLoaded(true);
       }
     };
 
-    if (status === "authenticated") {
-      fetchUsage();
-    }
+    checkLocalUsage();
   }, [status]);
 
   useEffect(() => {
@@ -78,31 +120,6 @@ export default function Home() {
       resultsRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [results]);
-
-  useEffect(() => {
-    const count = Cookies.get("usageCount");
-    const resetTime = Cookies.get("usageResetTime");
-
-    if (count && resetTime) {
-      const now = Date.now();
-      const then = parseInt(resetTime);
-      const hoursPassed = (now - then) / (1000 * 60 * 60);
-
-      if (hoursPassed >= RESET_INTERVAL_HOURS) {
-        Cookies.remove("usageCount");
-        Cookies.remove("usageResetTime");
-        setUsageCount(0);
-      } else {
-        const parsedCount = parseInt(count, 10);
-        setUsageCount(isNaN(parsedCount) ? 0 : parsedCount);
-      }
-    } else {
-      // If not logged in or cookie missing set usage to trial mode
-      setUsageCount(FREE_USAGE);
-    }
-
-    setRemainingTime(getRemainingTime());
-  }, []);
 
   const handleCancel = () => {
     if (abortController) {
@@ -280,21 +297,27 @@ export default function Home() {
             )}
           </div>
 
-          {/* Usage message */}
-          <div className="font-medium text-sm">
-            You have{" "}
-            <span className="font-bold">
-              {Math.max(
-                (isTrialUser ? MAX_TRIAL_USAGE : MAX_USAGE) - usageCount,
-                0
-              )}
-            </span>{" "}
-            free generation
-            {(isTrialUser ? MAX_TRIAL_USAGE : MAX_USAGE) - usageCount !== 1
-              ? "s"
-              : ""}{" "}
-            remaining today.
-          </div>
+          {!fetchUsageDataLoaded ? (
+            <div className="flex items-center text-sm text-gray-600 gap-2">
+              <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+              <span>Loading usage data...</span>
+            </div>
+          ) : (
+            <div className="font-medium text-sm">
+              You have{" "}
+              <span className="font-bold">
+                {Math.max(
+                  (isTrialUser ? MAX_TRIAL_USAGE : MAX_USAGE) - usageCount,
+                  0
+                )}
+              </span>{" "}
+              free generation
+              {(isTrialUser ? MAX_TRIAL_USAGE : MAX_USAGE) - usageCount !== 1
+                ? "s"
+                : ""}{" "}
+              remaining today.
+            </div>
+          )}
         </div>
 
         <ImageUploader onImagesChange={setImages} />
